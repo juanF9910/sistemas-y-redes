@@ -34,8 +34,7 @@ int main() {
     char buffer[BUFFER_SIZE];
 
     // Create socket
-    sockfd = socket(AF_INET, SOCK_STREAM, 0); //esta función devuelve un descriptor de socket, AF_INET es el dominio de la dirección del socket,
-    // SOCK_STREAM es el tipo de socket, 0 es el protocolo
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd < 0) {
         perror("Error in socket creation");
         return EXIT_FAILURE;
@@ -44,7 +43,7 @@ int main() {
     // Configure server address
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(8080); // Server port
-    server_addr.sin_addr.s_addr = inet_addr("10.10.110.141"); // Change IP if needed
+    server_addr.sin_addr.s_addr = inet_addr("10.10.110.213"); // Change IP if needed
 
     // Connect to server
     if (connect(sockfd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
@@ -67,7 +66,7 @@ int main() {
         }
 
         // Send message to the server
-        if (send(sockfd, buffer, strlen(buffer), 0) < 0) { //sockfd es el socket descriptor, buffer es el mensaje, strlen(buffer) es el tamaño del mensaje, 0 es el flag
+        if (send(sockfd, buffer, strlen(buffer), 0) < 0) {
             perror("Error sending message");
             break;
         }
