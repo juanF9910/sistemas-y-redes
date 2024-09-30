@@ -1,65 +1,61 @@
+#include <linux/kernel.h>
+#include <linux/slab.h>
+#include <linux/uaccess.h>  // for copy_from_user and copy_to_user
+#include <linux/syscalls.h> // for SYSCALL_DEFINE6
 
+SYSCALL_DEFINE6(avanzatech, 
+                 int, number, 
+                 char __user *, buffer, 
+                 size_t, length, 
+                 char __user *, dest_buffer, 
+                 char __user *, username, 
+                 size_t, dest_len) {
+    char *kernel_buffer;
+    char *kernel_username;
+    long ret;
 
-SYSCALL_DEFINE6(my_avanzatech, int,  number, char __user *, buffer, size_t,  length, char __user *, dest_buffer, char __user *, username, size_t dest_len){
+    // Allocate memory for kernel_buffer
+    kernel_buffer = kmalloc(length, GFP_KERNEL);
+    if (!kernel_buffer)
+        return -ENOMEM; // Handle memory allocation failure
 
-    char *temp_buffer; // Buffer to store user data temporarily
-    char *response; // Buffer to store the response
-    char username_buf[64]; // Maximum size for username (arbitrary limit)
-    long cubed_value; // To store cubed value
-    long result; // To store result of operations
-
-    // 1. Validate buffer sizes
-    if (length > 1024 || dest_len > sizeof(username_buf) - 1) { // Ensure safe size
-        return -EINVAL; // Invalid size
+    // Allocate memory for kernel_username
+    kernel_username = kmalloc(dest_len, GFP_KERNEL);
+    if (!kernel_username) {
+        kfree(kernel_buffer);
+        return -ENOMEM; // Handle memory allocation failure
     }
 
-    // 2. Allocate memory for temporary buffers in kernel space
-    temp_buffer = kmalloc(length, GFP_KERNEL);
-    if (!temp_buffer) {
-        return -ENOMEM; // Error if memory allocation fails
+    // Copy data from user space to kernel space
+    ret = copy_from_user(kernel_buffer, buffer, length);
+    if (ret) {
+        kfree(kernel_buffer);
+        kfree(kernel_username);
+        return -EFAULT; // Handle read error
     }
 
-    response = kmalloc(256, GFP_KERNEL);
-    if (!response) {
-        kfree(temp_buffer);
-        return -ENOMEM; // Error if memory allocation fails
+    // Copy the username from user space to kernel space
+    ret = copy_from_user(kernel_username, username, dest_len);
+    if (ret) {
+        kfree(kernel_buffer);
+        kfree(kernel_username);
+        return -EFAULT; // Handle read error
     }
 
-    // 3. Copy data from user space to kernel space
-    if (copy_from_user(temp_buffer, buffer, length)) {
-        kfree(temp_buffer);
-        kfree(response);
-        return -EFAULT; // Copy error
-    }
+    // Implement the cubing logic
+    int cubed_value = number * number * number;
 
-    // 4. Copy username from user space to kernel space
-    if (copy_from_user(username_buf, username, dest_len)) {
-        kfree(temp_buffer);
-        kfree(response);
-        return -EFAULT; // Copy error
-    }
+    // Prepare the response message
+    char response[256]; // Buffer to hold the response
+    snprintf(response, sizeof(response), "Hi %s, the cube of %d is %d", kernel_username, number, cubed_value);
 
-    // Ensure null termination of the username
-    username_buf[dest_len < sizeof(username_buf) ? dest_len : sizeof(username_buf) - 1] = '\0';
+    // Copy the response back to user space
+    ret = copy_to_user(dest_buffer, response, strlen(response) + 1);
+    kfree(kernel_buffer); // Free allocated memory
+    kfree(kernel_username); // Free allocated memory for username
 
-    // 5. Logic to cube the number
-    cubed_value = (long)number * number * number;
-
-    // 6. Create the response message
-    scnprintf(response, 256, "Hi %s, the cube of %d is %ld", username_buf, number, cubed_value);
-
-    // 7. Copy the response back to user space
-    result = copy_to_user(dest_buffer, response, strlen(response) + 1);
-    if (result) {
-        kfree(temp_buffer);
-        kfree(response);
-        return -EFAULT; // Copy error
-    }
-
-    // 8. Free memory
-    kfree(temp_buffer);
-    kfree(response);
+    if (ret)
+        return -EFAULT; // Handle write error
 
     return 0; // Success
-
 }
